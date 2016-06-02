@@ -6,7 +6,6 @@ import base64
 import hashlib
 import hmac
 import optparse
-import os
 import re
 import signal
 import socket
@@ -19,7 +18,7 @@ import urlparse
 import yubistatus
 import validate
 import html
-from sql import *
+from sql import SQL, connect_to_db
 
 
 class YubiServeHandler:
@@ -29,7 +28,7 @@ class YubiServeHandler:
         self.vclass = vclass
 
     def sign_message(self, answer, api_key):
-        data = [ '%s=%s' % (k, v) for (k, v) in answer.iteritems() ]
+        data = ['%s=%s' % (k, v) for (k, v) in answer.iteritems()]
         data.sort()
         data = '&'.join(data)
 
@@ -42,16 +41,16 @@ class YubiServeHandler:
         answer['status'] = status
         answer['h'] = self.sign_message(answer, api_key)
 
-        data = '\r\n'.join([ '%s=%s' % (k, v) for (k, v) in answer.iteritems() ])
+        data = '\r\n'.join(['%s=%s' % (k, v) for (k, v) in answer.iteritems()])
         data += '\r\n'
 
         return data
 
     def do_validate(self):
-        answer = { 't': time.strftime("%Y-%m-%dT%H:%M:%S"), 'otp': '' }
+        answer = {'t': time.strftime("%Y-%m-%dT%H:%M:%S"), 'otp': ''}
 
         # API id and OTP are required
-        if not self.params.has_key('id') or not self.params.has_key('otp'):
+        if 'id' not in self.params or 'otp' not in self.params:
             return self.build_answer(yubistatus.MISSING_PARAMETER, answer)
 
         # ensure API id is valid
@@ -88,7 +87,9 @@ class YubiHTTPServer(BaseHTTPServer.BaseHTTPRequestHandler):
     def __init__(self, request, client_address, server):
         global sqlite_db
         self.sql_connection = connect_to_db(sqlite_db)
-        return BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+        return BaseHTTPServer.BaseHTTPRequestHandler.__init__(
+                self, request, client_address, server
+                )
 
     def setup(self):
         self.connection = self.request
@@ -98,25 +99,26 @@ class YubiHTTPServer(BaseHTTPServer.BaseHTTPRequestHandler):
     def getToDict(self, qs):
         dict = {}
         for singleValue in qs.split('&'):
-            if not '=' in singleValue:
+            if '=' not in singleValue:
                 continue
             key, value = singleValue.split('=', 1)
             value = urllib.unquote_plus(value)
-            if self.PARAM_REGEXP.has_key(key) and re.match(self.PARAM_REGEXP[key], value):
+            if key in self.PARAM_REGEXP and \
+                    re.match(self.PARAM_REGEXP[key], value):
                 dict[key] = value
         return dict
 
     def do_GET(self):
         url = urlparse.urlparse(self.path, 'http')
 
-        if self.vclasses.has_key(url.path):
+        if url.path in self.vclasses:
             params = self.getToDict(url.query)
             vclass = self.vclasses[url.path]
             handler = YubiServeHandler(self.sql_connection, params, vclass)
             data = handler.do_validate()
             content_type = 'text/plain'
         else:
-            data = index = html.index
+            data = html.index
             content_type = 'text/html'
 
         self.send_response(200)
@@ -125,7 +127,8 @@ class YubiHTTPServer(BaseHTTPServer.BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-class ThreadingHTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class ThreadingHTTPServer(SocketServer.ThreadingMixIn,
+                          BaseHTTPServer.HTTPServer):
     pass
 
 
@@ -142,12 +145,14 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     sqlite_db = options.db
 
-    yubiserveHTTP = ThreadingHTTPServer((options.host, int(options.port)), YubiHTTPServer)
+    yubiserveHTTP = ThreadingHTTPServer((options.host, int(options.port)),
+                                        YubiHTTPServer)
 
     signal.signal(signal.SIGINT, stop_signal_handler)
 
     http_thread = threading.Thread(target=yubiserveHTTP.serve_forever)
     http_thread.setDaemon(True)
     http_thread.start()
+    print "Yubiserve running at {0}:{1}".format(options.host, options.port)
 
     signal.pause()

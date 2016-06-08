@@ -49,6 +49,7 @@ class Yubico(Validate):
 
         userid, token = match.groups()
 
+        # FIXME abstract away this sql hardcoded logic
         if not self.sql.select('yubico_get_key', [userid]):
             return yubistatus.BAD_OTP
         aeskey, internalname, counter, time = self.sql.result
@@ -70,6 +71,7 @@ class Yubico(Validate):
         if time >= timestamp and (counter >> 8) == (internalcounter >> 8):
             return yubistatus.BAD_OTP
 
+        # FIXME abstract away this sql hardcoded logic
         self.sql.update('yubico_update_counter', [internalcounter, timestamp, userid])
 
         return yubistatus.OK

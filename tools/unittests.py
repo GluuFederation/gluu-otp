@@ -124,7 +124,7 @@ if __name__ == '__main__':
 
     yubikey = dbconf.Yubikey(filename, verbose=False)
 
-    p = subprocess.Popen([ './src/yubiserve.py', '--db', filename ], stderr=open('/dev/null', 'w'))
+    p = subprocess.Popen([ './yubikeyedup/yubiserve.py', '--db', filename ], stderr=open('/dev/null', 'w'))
 
     suite = unittest.TestLoader().loadTestsFromTestCase(YubikeyTestCase)
     unittest.TextTestRunner().run(suite)

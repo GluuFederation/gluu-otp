@@ -1,6 +1,12 @@
+import os
+
 from nose.tools import assert_equal
 
 from yubikeyedup.backend import Backend
+
+
+def teardown_module():
+    os.remove('dummy_db')
 
 
 def test_intitialization():
@@ -12,6 +18,5 @@ def test_intitialization():
     b = Backend('LDAP', 'ldap://localhost:8080')
     assert_equal(b.driver, 'LDAP')
 
-    b = Backend('NON SENSE DRIVER', 'And URI')  # should default to SQLITE
+    b = Backend('NON SENSE DRIVER', 'dummy_db')  # should default to SQLITE
     assert_equal(b.driver, 'SQLITE')
-

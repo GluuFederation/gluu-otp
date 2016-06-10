@@ -2,21 +2,22 @@ import re
 
 from Crypto.Cipher import AES
 
-from sql import *
+from backend import Backend
 import yubistatus
 
 
 class Validate:
-    def __init__(self, sql):
-        self.sql = sql
+    def __init__(self, backend):
+        self.backend = Backend('SQLITE', None, backend)
 
 
 class Yubico(Validate):
     # sorry for this one-liner
-    modhex = ''.join(dict([ ('cbdefghijklnrtuv'[i], '0123456789abcdef'[i]) for i in range(16)] ).get(chr(j), '?') for j in range(256))
+    modhex = ''.join(dict([('cbdefghijklnrtuv'[i], '0123456789abcdef'[i])
+                     for i in range(16)]).get(chr(j), '?') for j in range(256))
 
     def set_params(self, params, answer):
-        if not params.has_key('nonce'):
+        if 'nonce' not in params:
             return yubistatus.MISSING_PARAMETER
 
         answer['otp'] = params['otp']
@@ -42,17 +43,19 @@ class Yubico(Validate):
         return crc
 
     def validate(self):
-        match = re.match('([cbdefghijklnrtuv]{0,16})([cbdefghijklnrtuv]{32})', self.otp)
+        match = re.match('([cbdefghijklnrtuv]{0,16})([cbdefghijklnrtuv]{32})',
+                         self.otp)
         if not match:
-            # this should not happen because otp matches YubiHTTPServer.PARAM_REGEXP
+            # this should not happen because otp matches
+            # YubiHTTPServer.PARAM_REGEXP
             return yubistatus.BACKEND_ERROR
 
         userid, token = match.groups()
 
-        # FIXME abstract away this sql hardcoded logic
-        if not self.sql.select('yubico_get_key', [userid]):
+        key_data = self.backend.get_key(userid)
+        if not key_data:
             return yubistatus.BAD_OTP
-        aeskey, internalname, counter, time = self.sql.result
+        aeskey, internalname, counter, time = key_data
 
         aes = AES.new(aeskey.decode('hex'), AES.MODE_ECB)
         plaintext = aes.decrypt(self.modhexdecode(token)).encode('hex')
@@ -63,16 +66,17 @@ class Yubico(Validate):
         if self.CRC(plaintext[:32].decode('hex')) != 0xf0b8:
             return yubistatus.BAD_OTP
 
-        internalcounter = int(plaintext[14:16] + plaintext[12:14] + plaintext[22:24], 16)
+        internalcounter = int(plaintext[14:16] + plaintext[12:14] +
+                              plaintext[22:24], 16)
         if counter >= internalcounter:
             return yubistatus.REPLAYED_OTP
 
-        timestamp = int(plaintext[20:22] + plaintext[18:20] + plaintext[16:18], 16)
+        timestamp = int(plaintext[20:22] + plaintext[18:20] + plaintext[16:18],
+                        16)
         if time >= timestamp and (counter >> 8) == (internalcounter >> 8):
             return yubistatus.BAD_OTP
 
-        # FIXME abstract away this sql hardcoded logic
-        self.sql.update('yubico_update_counter', [internalcounter, timestamp, userid])
+        self.backend.update_counter(internalcounter, timestamp, userid)
 
         return yubistatus.OK
 

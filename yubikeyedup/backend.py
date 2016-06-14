@@ -1,16 +1,10 @@
 """
-This file should contain the abstraction of the database.
-
-This should provide mere get and set functions for the data used by the various
-functions of the application.
-
-The object should be initialized using the driver name SQL/LDAP.
-NOTE: It is ok to hard code somethings of the LDAP config/schema for the initial version.
-
+This file contains the abstraction of the database.
 """
 import yubistatus
 
 from sql import connect_to_db, SQL
+from ldapdriver import LDAPConnection
 
 
 class Backend(object):
@@ -21,7 +15,8 @@ class Backend(object):
         """Initializing function
 
         driver (string) - either 'SQLITE' or 'LDAP'
-        uri (string) - OPTIONAL The location of the SQLITE databse file or the LDAP uri
+        uri (string) - OPTIONAL The location of the SQLITE databse file or the
+            LDAP uri
         connection (object) - OPTIONAL SQL Connection
         """
         self.driver = driver
@@ -33,6 +28,8 @@ class Backend(object):
             self.sql = SQL(sql_connection)
         elif self.driver == 'SQLITE' and connection:
             self.sql = connection
+        elif self.driver == 'LDAP':
+            self.ldap = LDAPConnection(uri)
 
     def get_key(self, userid):
         """Function that fetches the aeskey, internalname, counter and timestamp
@@ -42,19 +39,19 @@ class Backend(object):
             userid (string)  - the userid (keyid) extracted from the OTP
 
         Returns:
-            key (tuple) - (aeskey, internalname, counter, time) if the supplied 
+            key (tuple) - (aeskey, internalname, counter, time) if the supplied
                 userid matches an entry in the Data Storage
         """
         if self.driver == 'SQLITE':
             if not self.sql.select('yubico_get_key', [userid]):
                 return yubistatus.BAD_OTP
             aeskey, internalname, counter, time = self.sql.result
-        else:
-            # TODO get the following from LDAP
-            aeskey = ''
-            internalname = ''
-            counter = ''
-            time = ''
+        elif self.driver == 'LDAP':
+            dn, entry = self.ldap.search('yubico_get_key', [userid])[0]
+            aeskey = entry['aeskey'][0]
+            internalname = entry['internalname'][0]
+            counter = int(entry['counter'][0])
+            time = int(entry['time'][0])
 
         return (aeskey, internalname, counter, time)
 
@@ -66,11 +63,11 @@ class Backend(object):
             timestamp (int) - the timestamp from the otp
             userid (string) - the userid for the key for which the counter has
                 to be updated.
-
-        Returns:
-            status (bool) - the success status of the update operation
         """
         if self.driver == 'SQLITE':
             self.sql.update('yubico_update_counter',
                             [count, timestamp, userid])
-            return True
+        elif self.driver == 'LDAP':
+            dn, entry = self.ldap.search('yubico_get_key', [userid])[0]
+            self.ldap.update_d(dn, {'counter': str(count),
+                                    'time': str(timestamp)})

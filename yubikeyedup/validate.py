@@ -8,7 +8,8 @@ import yubistatus
 
 class Validate:
     def __init__(self, backend):
-        self.backend = Backend('SQLITE', None, backend)
+        #self.backend = Backend('SQLITE', None, backend)
+        self.backend = Backend('LDAP', 'ldap://localhost:10389')
 
 
 class Yubico(Validate):

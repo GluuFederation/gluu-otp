@@ -1,0 +1,41 @@
+dn: cn=schema
+objectClass: top
+objectClass: ldapSubentry
+objectClass: subschema
+cn: schema
+attributeTypes: ( ykPublicName-oid  NAME 'ykPublicName'
+  DESC 'Publically available name of the OTP Key'
+  SUBSTR caseIgnoreSubstringsMatch
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  X-ORIGIN 'Gluu created attribute' )
+attributeTypes: ( ykInternalName-oid NAME 'ykInternalName'
+  DESC 'Internal name of the OTP Key'
+  SUBSTR caseIgnoreSubstringsMatch
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  X-ORIGIN 'Gluu created attribute' )
+attributeTypes: ( ykActive-oid NAME 'ykActive'
+  DESC 'Status flag for enabling or disabling validation of a key'
+  EQUALITY booleanMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.7
+  X-ORIGIN 'Gluu created attribute' )
+attributeTypes: ( ykAESKey-oid NAME 'ykAESKey'
+  DESC 'The AES Encryption key of the Yubikey'
+  SUBSTR caseIgnoreSubstringsMatch
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  X-ORIGIN 'Gluu created attribute' )
+attributeTypes: ( ykCounter-oid NAME 'ykCounter'
+  DESC 'The counter of the last used OTP'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  X-ORIGIN 'Gluu created attribute' )
+attributeTypes: ( ykTime-oid NAME 'ykTime'
+  DESC 'The timestamp of the last used OTP'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  X-ORIGIN 'Gluu created attribute' )
+objectClasses: ( otpkey-oid NAME 'otpkey' STRUCTURAL
+  MUST ( objectClass $ ykPublicName $ ykInternalName $ ykActive $ ykAESKey $ ykCounter $ ykTime )
+  X-ORIGIN 'Gluu created objectclass' )

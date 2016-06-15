@@ -2,7 +2,7 @@ import os
 
 from nose.tools import assert_equal
 
-from yubikeyedup.backend import Backend
+from gluuotp.backend import Backend
 
 
 def teardown_module():

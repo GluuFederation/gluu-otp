@@ -2,6 +2,18 @@
 
 Gluu OTP is a YubiKey Validation Server which is bundled as an optional component of the Gluu Server.
 
+## Pre-requisites
+
+```
+apt-get install python-pip python-dev libsasl2-dev python-dev libldap2-dev libssl-dev
+pip install -r requirements.txt
+```
+
+## Run the server
+
+```
+python gluuotp/yubiserve.py
+```
 
 ## Attributions
 

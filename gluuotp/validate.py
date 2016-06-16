@@ -8,8 +8,10 @@ import yubistatus
 
 class Validate:
     def __init__(self, backend):
-        #self.backend = Backend('SQLITE', None, backend)
-        self.backend = Backend('LDAP', 'ldap://localhost:10389')
+        if backend == 'SQLITE':
+            self.backend = Backend('SQLITE', 'yubikeys.sqlite')
+        elif backend == 'LDAP':
+            self.backend = Backend('LDAP', 'ldap://localhost:10389')
 
 
 class Yubico(Validate):
@@ -43,7 +45,10 @@ class Yubico(Validate):
                     crc ^= 0x8408
         return crc
 
-    def validate(self):
+    def validate(self, otp=None):
+        if otp:
+            self.otp = otp
+
         match = re.match('([cbdefghijklnrtuv]{0,16})([cbdefghijklnrtuv]{32})',
                          self.otp)
         if not match:

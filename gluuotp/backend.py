@@ -29,7 +29,7 @@ class Backend(object):
         elif self.driver == 'SQLITE' and connection:
             self.sql = connection
         elif self.driver == 'LDAP':
-            self.ldap = LDAPConnection(uri)
+            self.ldap = LDAPConnection(uri)  # TODO get dn & pw during install
 
     def get_key(self, userid):
         """Function that fetches the aeskey, internalname, counter and timestamp
@@ -71,3 +71,25 @@ class Backend(object):
             dn, entry = self.ldap.search('yubico_get_key', [userid])[0]
             self.ldap.update_d(dn, {'counter': str(count),
                                     'time': str(timestamp)})
+
+    def get_user_keys(self, username):
+        """Function that retrieves the keys for the given username.
+
+        Params:
+            username (string) - the uid of the user in ldap
+        """
+        if self.driver == 'LDAP':
+            dn, entry = self.ldap.search('get_keys', username)
+            return entry['gluuOTPMetadata']
+
+    def update_key(self, username, key):
+        """LDAP only function that updates the particular key of the user.
+
+        Params:
+            username (string) - the user whose key is to be updated
+            key (string) - the key dict as string with updated values
+        """
+        dn, entry = self.ldap.search('get_keys', username)
+        # NOTE This way of updating restricts to one OTP key per person
+        self.ldap.update(dn, 'gluuOTPMetadata', key)
+

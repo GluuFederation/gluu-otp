@@ -11,10 +11,11 @@ from ldap.filter import filter_format
 class LDAPConnection(object):
 
     # FIXME Replace the base dn with the proper DN
-    BASE_DN = 'ou=yubikeys,o=gluu'
+    BASE_DN = 'o=gluu'
 
     REQUESTS = {
         'yubico_get_key': '(publicname=%s)',
+        'get_keys': '(uid=%s)',
         }
 
     def __init__(self, uri, dn=None, pw=None):

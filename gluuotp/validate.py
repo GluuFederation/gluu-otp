@@ -1,4 +1,5 @@
 import re
+import json
 
 from Crypto.Cipher import AES
 
@@ -85,6 +86,70 @@ class Yubico(Validate):
         self.backend.update_counter(internalcounter, timestamp, userid)
 
         return yubistatus.OK
+
+    def validate_user(self, username, otp):
+        """Validates the OTP of the requested user.
+
+        This function is written specifically to address the requirement of
+        username in order to fetch the gluuOTPMetadata fromt he LDAP server.
+        This has no particular use when using a RDBMS like SQLITE.
+
+        Params:
+            username (string) - the username stored in the ldap
+            otp (string) - the otp by the yubikey
+        """
+        if not otp:
+            return yubistatus.BAD_OTP
+
+        match = re.match('([cbdefghijklnrtuv]{0,16})([cbdefghijklnrtuv]{32})',
+                         otp)
+        if not match:
+            return yubistatus.BACKEND_ERROR
+
+        public_name, token = match.groups()
+
+        keys = self.backend.get_user_keys(username)
+
+        key_data = None
+        for key in keys:
+            if public_name in key:
+                key_data = key
+
+        if not key_data:
+            return yubistatus.BAD_OTP
+
+        key = json.loads(key_data)
+        aeskey = key['aeskey']
+        internalname = key['internalname']
+        counter = key['counter']
+        time = key['time']
+
+        aes = AES.new(aeskey.decode('hex'), AES.MODE_ECB)
+        plaintext = aes.decrypt(self.modhexdecode(token)).encode('hex')
+
+        if internalname != plaintext[:12]:
+            return yubistatus.BAD_OTP
+
+        if self.CRC(plaintext[:32].decode('hex')) != 0xf0b8:
+            return yubistatus.BAD_OTP
+
+        internalcounter = int(plaintext[14:16] + plaintext[12:14] +
+                              plaintext[22:24], 16)
+        if counter >= internalcounter:
+            return yubistatus.REPLAYED_OTP
+
+        timestamp = int(plaintext[20:22] + plaintext[18:20] + plaintext[16:18],
+                        16)
+        if time >= timestamp and (counter >> 8) == (internalcounter >> 8):
+            return yubistatus.BAD_OTP
+
+        key['counter'] = internalcounter
+        key['time'] = timestamp
+
+        self.backend.update_key(username, key)
+
+        return yubistatus.OK
+
 
 
 class OATH(Validate):

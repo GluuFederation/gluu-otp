@@ -11,7 +11,7 @@ class Backend(object):
 
     __drivers = ['SQLITE', 'LDAP']
 
-    def __init__(self, driver, uri=None, connection=None):  # FIXME ugly hack handling connection
+    def __init__(self, driver, uri=None, connection=None):  # FIXME ugly hack
         """Initializing function
 
         driver (string) - either 'SQLITE' or 'LDAP'
@@ -29,7 +29,7 @@ class Backend(object):
         elif self.driver == 'SQLITE' and connection:
             self.sql = connection
         elif self.driver == 'LDAP':
-            self.ldap = LDAPConnection(uri)  # TODO get dn & pw during install
+            self.ldap = LDAPConnection()
 
     def get_key(self, userid):
         """Function that fetches the aeskey, internalname, counter and timestamp
@@ -73,7 +73,7 @@ class Backend(object):
                                     'time': str(timestamp)})
 
     def get_user_keys(self, username):
-        """Function that retrieves the keys for the given username.
+        """LDAP only function that retrieves the keys of a user.
 
         Params:
             username (string) - the uid of the user in ldap
@@ -92,4 +92,3 @@ class Backend(object):
         dn, entry = self.ldap.search('get_keys', username)
         # NOTE This way of updating restricts to one OTP key per person
         self.ldap.update(dn, 'gluuOTPMetadata', key)
-

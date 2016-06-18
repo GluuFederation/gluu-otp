@@ -9,6 +9,10 @@ apt-get install python-pip python-dev libsasl2-dev python-dev libldap2-dev libss
 pip install -r requirements.txt
 ```
 
+## Developement
+
+* Copy the file `gluuotp/config.py.sample` to `gluuotp/config.py` and edit the file to put in your ldap credentials as required.
+
 ## Run the server
 
 ```

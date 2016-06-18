@@ -4,27 +4,24 @@ LDAP client application
 - provides the fucntions to perform SEARCH, ADD and MODIFY operations
 """
 import ldap
+import config  # local config object
 
 from ldap.filter import filter_format
 
 
 class LDAPConnection(object):
 
-    # FIXME Replace the base dn with the proper DN
-    BASE_DN = 'o=gluu'
-
     REQUESTS = {
         'yubico_get_key': '(publicname=%s)',
         'get_keys': '(uid=%s)',
         }
 
-    def __init__(self, uri, dn=None, pw=None):
-        self.con = ldap.initialize(uri)
-        # get the inumOrg and build the custom base_dn using the inumOrg
-        # self.base_dn = "ou=otp_devices,o={0},o=gluu".format(inumOrg)
+    def __init__(self):
+        self.con = ldap.initialize(config.LDAP_URI)
 
-        if dn and pw:
-            self.con.simple_bind_s(dn, pw)
+        # TODO find a configurable way to put in the ldap password
+        if config.LDAP_USER and config.LDAP_PASS:
+            self.con.simple_bind_s(config.LDAP_USER, config.LDAP_PASS)
 
     def search(self, req, filters):
         """Returns the search results of the LDAP server.
@@ -38,7 +35,7 @@ class LDAPConnection(object):
         """
         filts = filter_format(self.REQUESTS[req], filters)
         results = self.con.search_s(
-                self.BASE_DN, ldap.SCOPE_SUBTREE, filts,
+                config.BASE_DN, ldap.SCOPE_SUBTREE, filts,
                 [])  # retrives all attributes since list is empty
 
         return results

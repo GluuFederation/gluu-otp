@@ -3,3 +3,4 @@ yubikeys.sqlite3
 
 env/*
 
+gluuotp/config.py

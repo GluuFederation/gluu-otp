@@ -36,7 +36,7 @@ setup(
 
     keywords='gluuotp yubikey validation otp',
 
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    packages=find_packages(exclude=['tools', 'docs', 'tests']),
     install_requires=['pycrypto', 'python-ldap'],
 
     extras_require={

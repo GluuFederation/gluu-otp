@@ -17,9 +17,9 @@ class LDAPConnection(object):
         }
 
     def __init__(self):
+        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
         self.con = ldap.initialize(config.LDAP_URI)
 
-        # TODO find a configurable way to put in the ldap password
         if config.LDAP_USER and config.LDAP_PASS:
             self.con.simple_bind_s(config.LDAP_USER, config.LDAP_PASS)
 

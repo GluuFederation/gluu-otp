@@ -15,7 +15,7 @@ class Validate:
             self.backend = Backend('LDAP', 'ldap://localhost:10389')
 
 
-class Yubico(Validate):
+class YubicoOTP(Validate):
     # sorry for this one-liner
     modhex = ''.join(dict([('cbdefghijklnrtuv'[i], '0123456789abcdef'[i])
                      for i in range(16)]).get(chr(j), '?') for j in range(256))

@@ -6,7 +6,7 @@
 from org.jboss.seam.security import Identity
 from org.xdi.model.custom.script.type.auth import PersonAuthenticationType
 
-from gluuotp.validate import Yubico
+from gluuotp.validate import YubicoOTP
 
 
 class PersonAuthentication(PersonAuthenticationType):
@@ -38,12 +38,12 @@ class PersonAuthentication(PersonAuthenticationType):
 
             credentials = Identity.instance().getCredentials()
             user_name = credentials.getUsername()
-            otp = credentials.getPassword()  # this should be the OTP entered by Yubikey
+            otp = credentials.getPassword()  # this should be the Yubikey OTP
 
             if not(user_name and otp):
                 return False
 
-            validator = Yubico('LDAP')
+            validator = YubicoOTP('LDAP')
             result = validator.validate_user(user_name, otp)
 
             if result == 'OK':
@@ -52,7 +52,7 @@ class PersonAuthentication(PersonAuthenticationType):
 
     def prepareForStep(self, configurationAttributes, requestParameters, step):
         if (step == 1):
-            print "Basic. Prepare for Step 1"
+            print "GluuOTP. Prepare for Step 1"
             return True
         else:
             return False

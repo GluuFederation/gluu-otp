@@ -73,7 +73,7 @@ class YubiHTTPServer(BaseHTTPServer.BaseHTTPRequestHandler):
 
     server_version = 'YubiKeyedUp/1.0'
     vclasses = {
-        '/wsapi/2.0/verify': validate.Yubico,
+        '/wsapi/2.0/verify': validate.YubicoOTP,
         '/wsapi/2.0/oathverify': validate.OATH,
     }
 

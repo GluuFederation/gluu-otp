@@ -15,7 +15,7 @@ import time
 import urllib
 import urlparse
 
-import yubistatus
+import status
 import validate
 import html
 from sql import SQL, connect_to_db
@@ -37,8 +37,8 @@ class YubiServeHandler:
 
         return otp_hmac
 
-    def build_answer(self, status, answer, api_key=''):
-        answer['status'] = status
+    def build_answer(self, stat, answer, api_key=''):
+        answer['status'] = stat
         answer['h'] = self.sign_message(answer, api_key)
 
         data = '\r\n'.join(['%s=%s' % (k, v) for (k, v) in answer.iteritems()])
@@ -51,20 +51,20 @@ class YubiServeHandler:
 
         # API id and OTP are required
         if 'id' not in self.params or 'otp' not in self.params:
-            return self.build_answer(yubistatus.MISSING_PARAMETER, answer)
+            return self.build_answer(status.MISSING_PARAMETER, answer)
 
         # ensure API id is valid
         if not self.sql.select('get_api_secret', [self.params['id']]):
-            return self.build_answer(yubistatus.NO_SUCH_CLIENT, answer)
+            return self.build_answer(status.NO_SUCH_CLIENT, answer)
 
         api_key = base64.b64decode(self.sql.result[0])
 
         # do token validation
         vclass = self.vclass(self.sql)
-        status = vclass.set_params(self.params, answer)
-        if status == yubistatus.OK:
-            status = vclass.validate()
-        return self.build_answer(status, answer, api_key)
+        stat = vclass.set_params(self.params, answer)
+        if stat == status.OK:
+            stat = vclass.validate()
+        return self.build_answer(stat, answer, api_key)
 
 
 class YubiHTTPServer(BaseHTTPServer.BaseHTTPRequestHandler):

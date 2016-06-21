@@ -4,7 +4,7 @@ import json
 from Crypto.Cipher import AES
 
 from backend import Backend
-import yubistatus
+import status
 
 
 class Validate:
@@ -12,7 +12,7 @@ class Validate:
         if backend == 'SQLITE':
             self.backend = Backend('SQLITE', 'yubikeys.sqlite')
         elif backend == 'LDAP':
-            self.backend = Backend('LDAP', 'ldap://localhost:10389')
+            self.backend = Backend('LDAP')
 
 
 class YubicoOTP(Validate):
@@ -22,7 +22,7 @@ class YubicoOTP(Validate):
 
     def set_params(self, params, answer):
         if 'nonce' not in params:
-            return yubistatus.MISSING_PARAMETER
+            return status.MISSING_PARAMETER
 
         answer['otp'] = params['otp']
         answer['nonce'] = params['nonce']
@@ -30,7 +30,7 @@ class YubicoOTP(Validate):
 
         self.otp = params['otp']
 
-        return yubistatus.OK
+        return status.OK
 
     def modhexdecode(self, string):
         return string.translate(self.modhex).decode('hex')
@@ -55,37 +55,37 @@ class YubicoOTP(Validate):
         if not match:
             # this should not happen because otp matches
             # YubiHTTPServer.PARAM_REGEXP
-            return yubistatus.BACKEND_ERROR
+            return status.BAD_OTP
 
         userid, token = match.groups()
 
         key_data = self.backend.get_key(userid)
         if not key_data:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
         aeskey, internalname, counter, time = key_data
 
         aes = AES.new(aeskey.decode('hex'), AES.MODE_ECB)
         plaintext = aes.decrypt(self.modhexdecode(token)).encode('hex')
 
         if internalname != plaintext[:12]:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         if self.CRC(plaintext[:32].decode('hex')) != 0xf0b8:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         internalcounter = int(plaintext[14:16] + plaintext[12:14] +
                               plaintext[22:24], 16)
         if counter >= internalcounter:
-            return yubistatus.REPLAYED_OTP
+            return status.REPLAYED_OTP
 
         timestamp = int(plaintext[20:22] + plaintext[18:20] + plaintext[16:18],
                         16)
         if time >= timestamp and (counter >> 8) == (internalcounter >> 8):
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         self.backend.update_counter(internalcounter, timestamp, userid)
 
-        return yubistatus.OK
+        return status.OK
 
     def validate_user(self, username, otp):
         """Validates the OTP of the requested user.
@@ -99,12 +99,12 @@ class YubicoOTP(Validate):
             otp (string) - the otp by the yubikey
         """
         if not otp:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         match = re.match('([cbdefghijklnrtuv]{0,16})([cbdefghijklnrtuv]{32})',
                          otp)
         if not match:
-            return yubistatus.BACKEND_ERROR
+            return status.BAD_OTP
 
         public_name, token = match.groups()
 
@@ -116,7 +116,7 @@ class YubicoOTP(Validate):
                 key_data = key
 
         if not key_data:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         key = json.loads(key_data)
         aeskey = key['aeskey']
@@ -128,27 +128,27 @@ class YubicoOTP(Validate):
         plaintext = aes.decrypt(self.modhexdecode(token)).encode('hex')
 
         if internalname != plaintext[:12]:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         if self.CRC(plaintext[:32].decode('hex')) != 0xf0b8:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         internalcounter = int(plaintext[14:16] + plaintext[12:14] +
                               plaintext[22:24], 16)
         if counter >= internalcounter:
-            return yubistatus.REPLAYED_OTP
+            return status.REPLAYED_OTP
 
         timestamp = int(plaintext[20:22] + plaintext[18:20] + plaintext[16:18],
                         16)
         if time >= timestamp and (counter >> 8) == (internalcounter >> 8):
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         key['counter'] = internalcounter
         key['time'] = timestamp
 
         self.backend.update_key(username, key)
 
-        return yubistatus.OK
+        return status.OK
 
 
 
@@ -159,18 +159,18 @@ class OATH(Validate):
             oath = params['otp'][12:]
         elif len(otp) in [ 6, 8 ]:
             if not params.has_key('publicid'):
-                return yubistatus.MISSING_PARAMETER
+                return status.MISSING_PARAMETER
             publicid = params['publicid']
             oath = params['otp']
         else:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         answer['otp'] = params['otp']
 
         self.oath = oath
         self.publicid = publicid
 
-        return yubistatus.OK
+        return status.OK
 
     def test_hotp(self, key, counter, digits=6):
         counter = str(counter).rjust(16, '0').decode('hex')
@@ -181,19 +181,19 @@ class OATH(Validate):
 
     def validate(self):
         # XXX: TODO, it hasn't been tested
-        return yubistatus.BACKEND_ERROR
+        return status.BACKEND_ERROR
 
         if len(self.oath) % 2 != 0:
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         if not self.sql.select('oath_get_token', [publicid]):
-            return yubistatus.BAD_OTP
+            return status.BAD_OTP
 
         actualcounter, key = self.sql.result
         key = key.decode('hex')
         for counter in range(actualcounter + 1, actualcounter + 256):
             if self.oath == self.test_hotp(key, counter, len(self.oath)):
                 self.sql.update('yubico_update_counter', [str(counter), self.publicid])
-                return yubistatus.OK
+                return status.OK
 
-        return yubistatus.BAD_OTP
+        return status.BAD_OTP

@@ -1,7 +1,7 @@
 """
 This file contains the abstraction of the database.
 """
-import yubistatus
+import status
 
 from sql import connect_to_db, SQL
 from ldapdriver import LDAPConnection
@@ -44,7 +44,7 @@ class Backend(object):
         """
         if self.driver == 'SQLITE':
             if not self.sql.select('yubico_get_key', [userid]):
-                return yubistatus.BAD_OTP
+                return status.BAD_OTP
             aeskey, internalname, counter, time = self.sql.result
         elif self.driver == 'LDAP':
             dn, entry = self.ldap.search('yubico_get_key', [userid])[0]

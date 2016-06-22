@@ -94,6 +94,15 @@ class YubicoOTP(Validate):
         username in order to fetch the gluuOTPMetadata fromt he LDAP server.
         This has no particular use when using a RDBMS like SQLITE.
 
+        The format for gluuOTPMetadata is a <string> of the following JSON
+        {
+            'publicname': 'string',
+            'internalname': 'string',
+            'aeskey': 'string',
+            'counter': int,
+            'time': int
+        }
+
         Params:
             username (string) - the username stored in the ldap
             otp (string) - the otp by the yubikey

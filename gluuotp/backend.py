@@ -79,7 +79,7 @@ class Backend(object):
             username (string) - the uid of the user in ldap
         """
         if self.driver == 'LDAP':
-            dn, entry = self.ldap.search('get_keys', username)
+            dn, entry = self.ldap.search('get_keys', username)[0]
             return entry['gluuOTPMetadata']
 
     def update_key(self, username, key):

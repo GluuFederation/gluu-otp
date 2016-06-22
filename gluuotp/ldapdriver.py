@@ -4,18 +4,15 @@ LDAP client application
 - provides the fucntions to perform SEARCH, ADD and MODIFY operations
 """
 import ldap
+import json
+
 import config  # local config object
 
 from ldap.filter import filter_format
+from ldap.modlist import modifyModlist
 
 
 class LDAPConnection(object):
-
-    REQUESTS = {
-        'yubico_get_key': '(publicname=%s)',
-        'get_keys': '(uid=%s)',
-        }
-
     def __init__(self):
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
         self.con = ldap.initialize(config.LDAP_URI)
@@ -23,43 +20,56 @@ class LDAPConnection(object):
         if config.LDAP_USER and config.LDAP_PASS:
             self.con.simple_bind_s(config.LDAP_USER, config.LDAP_PASS)
 
-    def search(self, req, filters):
-        """Returns the search results of the LDAP server.
+    def get_keys(self, username):
+        """Function that searchs the LDAP for the user and returns user's
+        gluuOTPMetadata (which is a list of keys stored for that person).
 
         Params:
-            req (string) - any one of the REQUESTS
-            filters (list) - list of the filter params for the REQ string
+            username (string) - The username (uid) of the user
 
         Returns:
-            results (list) - a list of tuples in the format (dn, dict(attrs))
+            keys (list) - The data from gluuOTPMetadata field in the ldap
+                which is a string of JSON containing the information about
+                the Yubikey
         """
-        filts = filter_format(self.REQUESTS[req], filters)
+        filt = filter_format('(uid=%s)', [username])
         results = self.con.search_s(
-                config.BASE_DN, ldap.SCOPE_SUBTREE, filts,
-                [])  # retrives all attributes since list is empty
+                config.BASE_DN, ldap.SCOPE_SUBTREE, filt, []
+                )
+        if len(results) == 0:
+            return None
 
-        return results
+        dn, user = results[0]
+        return user['gluuOTPMetadata']
 
-    def update(self, dn, attr, value):
-        """Updates the attribute with the new value for the mentioned DN.
-
-        Params:
-            dn (string) - the dn value of the entry
-            attr (string) - the attribute that is to be updated
-            value (string) - the new value to replace the old one
-        """
-        modlist = [(ldap.MOD_REPLACE, attr, value)]
-        self.con.modify_s(dn, modlist)
-
-    def update_d(self, dn, d):
-        """Similar to `update`, but performs multiple updations using dict.
+    def update_key(self, username, key):
+        """Function that updates the particular key of the user.
 
         Params:
-            dn (string) - the dn of the entry
-            d (dict)    - the dictionary containing the attributes and their
-                corresponding new values
+            username (string) - the user whose key is to be updated
+            key (dict) - the key dict with updated values
         """
-        modlist = []
-        for k, v in d.items():
-            modlist.append((ldap.MOD_REPLACE, k, v))
-        self.con.modify_s(dn, modlist)
+        filt = filter_format('(uid=%s)', [username])
+        results = self.con.search_s(
+                config.BASE_DN, ldap.SCOPE_SUBTREE, filt, []
+                )
+        if len(results) == 0:
+            return
+
+        dn, user = results[0]
+
+        # A user might have multiple keys. Search and find the right key
+        # and update with the new counter and timestamp value
+        keys = user['gluuOTPMetadata']
+        oldkey = None
+        for k in keys:
+            if key['publicname'] in k:
+                oldkey = k
+
+        if not oldkey:
+            return
+
+        mods = modifyModlist({'gluuOTPMetadata': oldkey},
+                             {'gluuOTPMetadata': json.dumps(key)})
+
+        self.con.modify_s(dn, mods)

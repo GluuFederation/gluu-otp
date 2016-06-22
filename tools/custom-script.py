@@ -6,7 +6,7 @@
 from org.jboss.seam.security import Identity
 from org.xdi.model.custom.script.type.auth import PersonAuthenticationType
 
-from gluuotp.validate import YubicoOTP
+from gluuotp.validate import Validate
 
 
 class PersonAuthentication(PersonAuthenticationType):
@@ -43,11 +43,13 @@ class PersonAuthentication(PersonAuthenticationType):
             if not(user_name and otp):
                 return False
 
-            validator = YubicoOTP('LDAP')
+            validator = Validate()
             result = validator.validate_user(user_name, otp)
 
             if result == 'OK':
                 return True
+
+            print result
         return False
 
     def prepareForStep(self, configurationAttributes, requestParameters, step):

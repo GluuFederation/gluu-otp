@@ -114,11 +114,11 @@ class PersonAuthentication(PersonAuthenticationType):
             user = userService.getUser(user_name)
 
             if not user:
-                print "Failed to find the user with ID: %s" % (user_name)
+                print "GluuOTP. Failed to find the user with ID: %s" % (user_name)
                 return False
 
             gluuOTPMetadata = user.getAttribute('gluuOTPMetadata')
-            print gluuOTPMetadata
+            print "GluuOTP Metadata: %s" % (str(gluuOTPMetadata))
             return True
 
         return False

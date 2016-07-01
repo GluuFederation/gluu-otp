@@ -11,7 +11,7 @@ from org.xdi.util import StringHelper
 
 import java
 
-import httplib
+import urllib2
 import urllib
 import uuid
 
@@ -22,7 +22,6 @@ class PersonAuthentication(PersonAuthenticationType):
 
     def init(self, configurationAttributes):
         print "Yubicloud. Initialization"
-        print "Yubicloud. Initialized successfully"
 
         self.api_server = configurationAttributes.get("yubicloud_uri").getValue2()
         self.api_key = configurationAttributes.get("yubicloud_api_key").getValue2()
@@ -31,7 +30,6 @@ class PersonAuthentication(PersonAuthenticationType):
         return True
 
     def destroy(self, configurationAttributes):
-        print "Yubicloud. Destroy"
         print "Yubicloud. Destroyed successfully"
         return True
 
@@ -54,6 +52,7 @@ class PersonAuthentication(PersonAuthenticationType):
 
             # Validate otp length
             if len(otp) < 32 or len(otp) > 48:
+                print "Yubicloud. Invalid OTP length"
                 return False
 
             user_service = UserService.instance()
@@ -63,19 +62,26 @@ class PersonAuthentication(PersonAuthenticationType):
 
             # Match the user with the yubikey
             if public_key not in otp:
+                print "Yubicloud. Public Key not matching OTP"
                 return False
 
-            nonce = uuid.uuid4().replace("-", "")
-            params = urllib.urlencode({"id": self.client_id, "otp": otp, "nonce": nonce})
-            con = httplib.HTTPSConnection(self.yubicloud_uri)
-            con.request("GET", "/wsapi/2.0/verify/?"+params)
-            response = con.getresponse()
-            data = response.read()
+            data = ""
+            try:
+                nonce = str(uuid.uuid4()).replace("-", "")
+                params = urllib.urlencode({"id": self.client_id, "otp": otp, "nonce": nonce})
+                url = "https://" + self.api_server + "/wsapi/2.0/verify/?" + params
+                f = urllib2.urlopen(url)
+                data = f.read()
+            except Exception as e:
+                print "Yubicloud. Exception ", e
 
-            if "status=OK" not in data:
-                return False
+            if 'status=OK' in data:
+                user_service.authenticate(username)
+                print "Yubicloud. Authentication Successful"
+                return True
 
-            return True
+            print "Yubicloud. End of Step 1. Returning False."
+            return False
         else:
             return False
 

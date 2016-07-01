@@ -11,6 +11,10 @@ from org.xdi.util import StringHelper
 
 import java
 
+import httplib
+import urllib
+import uuid
+
 
 class PersonAuthentication(PersonAuthenticationType):
     def __init__(self, currentTimeMillis):
@@ -19,6 +23,11 @@ class PersonAuthentication(PersonAuthenticationType):
     def init(self, configurationAttributes):
         print "Yubicloud. Initialization"
         print "Yubicloud. Initialized successfully"
+
+        self.api_server = configurationAttributes.get("yubicloud_uri").getValue2()
+        self.api_key = configurationAttributes.get("yubicloud_api_key").getValue2()
+        self.client_id = configurationAttributes.get("yubicloud_id").getValue2()
+
         return True
 
     def destroy(self, configurationAttributes):
@@ -40,15 +49,30 @@ class PersonAuthentication(PersonAuthenticationType):
             print "Yubicloud. Authenticate for step 1"
 
             credentials = Identity.instance().getCredentials()
-            user_name = credentials.getUsername()
-            user_password = credentials.getPassword()
+            username = credentials.getUsername()
+            otp = credentials.getPassword()
 
-            logged_in = False
-            if (StringHelper.isNotEmptyString(user_name) and StringHelper.isNotEmptyString(user_password)):
-                userService = UserService.instance()
-                logged_in = userService.authenticate(user_name, user_password)
+            # Validate otp length
+            if len(otp) < 32 or len(otp) > 48:
+                return False
 
-            if (not logged_in):
+            user_service = UserService.instance()
+            user = user_service.getUser(username)
+
+            public_key = user.getAttribute('yubikeyId')
+
+            # Match the user with the yubikey
+            if public_key not in otp:
+                return False
+
+            nonce = uuid.uuid4().replace("-", "")
+            params = urllib.urlencode({"id": self.client_id, "otp": otp, "nonce": nonce})
+            con = httplib.HTTPSConnection(self.yubicloud_uri)
+            con.request("GET", "/wsapi/2.0/verify/?"+params)
+            response = con.getresponse()
+            data = response.read()
+
+            if "status=OK" not in data:
                 return False
 
             return True
